@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- $Id: cvs.xml 718 2009-02-11 16:05:23Z mgr2 $ -->
+<!--
+	CVS Servicefunctions
+-->
+<project name="Deploy-cvs" basedir=".">
+	<property file="cvsUserinfo.properties" />
+	<property file="SCM" />
+	<property name="SCM.tagToDeploy" value="HEAD" />
+	<property name="SCM.repository" value="cvs.esolut.de:/export/home/cvs/cvsroot" />
+	<!-- Java Magie, Copyright tki -->
+	<!-- Es wird ein Customtask aus dem Lib verzeichnis geladen -->
+	<path id="msdant.classpath">
+		<fileset dir="${basedir}/lib/">
+			<include name="php-ant.jar" />
+		</fileset>
+	</path>
+	<taskdef classpathref="msdant.classpath" resource="de/esolut/tools/ant/taskdefs/msd/defaults.properties" />
+	<!-- Special funktion zum ermitteln des hostname, versteckt in der msdcvs, ausführen -->
+	<hostname property="hostname" />
+
+	<!-- Magie ende -->
+
+	<!-- Das modul in das cvsdir auschecken, wenn es noch nicht existiert -->
+	<target name="checkout" depends="setCvsLoginInformation, isCheckedOut" unless="checkedOut">
+		<echo message=" --- CVS CHECKOUT ---" />
+		<mkdir dir="${SCM.workingDirectory}" />
+		<cvs cvsroot=":pserver:${SCM.login}:${SCM.password}@${SCM.repository}" package="${modulname}" dest="${SCM.workingDirectory}" />
+		<echo message=" --- /CVS CHECKOUT ---" />
+	</target>
+
+	<!-- Eine version nach abgzufragendem tag holen. Ist die eingabe leer, default aus dem propertyfile benutzen. -->
+	<target name="updatebytag" depends="setCvsLoginInformation">
+		<echo message=" --- CVS UPDATE BY TAG ---" />
+		<echo message="Hole tag ${SCM.tagToDeploy}" />
+		<cvs cvsroot=":pserver:${SCM.login}:${SCM.password}@${SCM.repository}" dest="${SCM.workingDirectory}/${modulname}" tag="${SCM.tagToDeploy}" command="update -dCAP" failonerror="true" quiet="true" />
+		<echo message=" --- /CVS UPDATEBY TAG ---" />
+	</target>
+
+	<target name="setTag" depends="setCvsLoginInformation, timestamp">
+		<echo message=" --- CVS TAG ---" />
+		<cvs cvsroot=":pserver:${SCM.login}:${SCM.password}@${SCM.repository}" dest="${SCM.workingDirectory}/${modulname}" failonerror="true" quiet="true" command="rtag -d ${target} ${modulname}" />
+		<echo message=" Tag gelöscht: ${target}" />
+		<cvs cvsroot=":pserver:${SCM.login}:${SCM.password}@${SCM.repository}" dest="${SCM.workingDirectory}/${modulname}" failonerror="true" reallyquiet="true" command="tag -F ${target}" />
+		<echo message=" Tag gesetzt: ${target}" />
+		<cvs cvsroot=":pserver:${SCM.login}:${SCM.password}@${SCM.repository}" dest="${SCM.workingDirectory}/${modulname}" failonerror="true" reallyquiet="true" command="tag -F ${target}_${timestamp}" />
+		<echo message=" Tag gesetzt: ${target}_${timestamp}" />
+		<echo message=" --- /CVS TAG ---" />
+	</target>
+
+	<target name="setCvsLoginInformation">
+		<input addproperty="SCM.login" message="CVS-Loginname (optional 'SCM.login=' in cvsUserinfo.properties eintragen)" />
+		<input addproperty="SCM.password" message="CVS-Passwort (optional 'SCM.password=' in cvsUserinfo.properties eintragen)" />
+	</target>
+
+	<target name="isCheckedOut">
+		<echo message=" --- ISCHECKEDOUT ---" />
+		<echo message="isDirectory? ${SCM.workingDirectory}/${modulname}" />
+		<available property="checkedOut" file="${SCM.workingDirectory}/${modulname}" type="dir" />
+		<echo message=" --- /ISCHECKEDOUT ---" />
+	</target>
+
+	<!-- Überprüfung der benötigten variablen -->
+	<target name="checkVarsSCM">
+		<fail unless="modulname" message="Es sind nicht alle benötigten CVS Variabeln gesetzt. (modulname)" />
+		<fail unless="SCM.repository" message="Es sind nicht alle benötigten CVS Variabeln gesetzt. (SCM.repository)" />
+		<fail unless="SCM.liveServer" message="Es sind nicht alle benötigten CVS Variabeln gesetzt. (SCM.liveServer)" />
+		<fail unless="SCM.workingDirectory" message="Es sind nicht alle benötigten CVS Variabeln gesetzt. (SCM.workingDirectory)" />
+	</target>
+
+	<target name="generateChangelog" if="mail.to">
+		<echo message="--- Generiere Changelog ---" />
+		<echo message="Changes von '${SCM.liveServer}' bis '${SCM.tagToDeploy}'" />
+		<echo message="*****************************************************************" />
+		<echo message="**	 Die dateien sind Deployt, Es kann getestet werden.	    ****" />
+		<echo message="**	    ACHTUNG, DEN ANT TASK NOCH NICHT ABBRECHEN!!        ****" />
+		<echo message="*****************************************************************" />
+		<delete file="${SCM.workingDirectory}/${modulname}_changelog.xml" />
+
+		<msdcvschangelog dir="${SCM.workingDirectory}/${modulname}" cvsRoot=":pserver:${SCM.login}:${SCM.password}@${SCM.repository}" destfile="${SCM.workingDirectory}/${modulname}_changelog.xml" tag="${SCM.liveServer}::${SCM.tagToDeploy}" failonerror="false" />
+
+		<echo message="--- Changelog XSL Transformation ---" />
+		<delete file="${SCM.workingDirectory}/${modulname}_changelog.html" />
+		<xslt in="${SCM.workingDirectory}/${modulname}_changelog.xml" out="${SCM.workingDirectory}/${modulname}_changelog.html" style="${basedir}/lib/changelog_cvs.xsl">
+			<param name="title" expression="${modulname} (${target} [${timestamp}])" />
+			<param name="module" expression="${modulname}" />
+			<param name="server" expression="${target}:/${server.path}" />
+			<param name="SCMuser" expression="${SCM.login}" />
+			<param name="SCMdeployed" expression="${SCM.tagToDeploy}" />
+			<param name="SCMhistorytag" expression="${target}_${timestamp}" />
+		</xslt>
+	</target>
+</project>
