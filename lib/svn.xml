@@ -102,11 +102,12 @@
 		<!-- wenn SCM.liveRevision noch nicht gesetzt ist, ging etwas schief, evtl. wurde noch nie live deployed. also default setzen -->
 		<property name="SCM.liveRevision" value="1" />
 
-		<!-- Deployte revisionsnummer holen -->
+		<!-- Fetch current Revisionnumber -->
 		<svn username="${SCM.login}" password="${SCM.password}" svnkit="${svnCliMissing}">
 			<status path="${SCM.workingDirectory}/${modulname}" lastChangedRevisionProperty="SCM.deployRevision" />
 		</svn>
-		<!-- Bestimme den Unterschied zwischen der aktuell deployten und live revision -->
+
+		<!-- get DIFF between current and last live revisions. -->
 		<echo message="Deploy: ${SCM.deployRevision}" />
 		<echo message="Live: ${SCM.liveRevision}" />
 		<exec executable="svn" output="${SCM.workingDirectory}/${modulname}_changelog.xml">
@@ -131,18 +132,18 @@
 		<echo message="--- /SVN GENERATE CHANGELOG ---" />
 	</target>
 
-	<!-- Dies kann durch ein File "svnUserinfo.properties" vorbelegt werden! -->
+	<!-- SVN login credentials. Can also be defined by a file named "svnUserinfo.properties"! -->
 	<target name="setSCMLoginInformation">
 		<input addproperty="SCM.login" message="SCM-Loginname (optional 'SCM.login=' in svnUserinfo.properties eintragen)" />
-		<input addproperty="SCM.password" message="SCM-Passwort (optional 'SCM.password=' in svnUserinfo.properties eintragen)" />
+		<input addproperty="SCM.password" message="SCM-Password (optional 'SCM.password=' in svnUserinfo.properties eintragen)" />
 	</target>
 
-	<!-- Überprüfung der benötigten variablen -->
+	<!-- Check for required Properties. -->
 	<target name="checkVarsSCM">
-		<fail unless="modulname" message="Es sind nicht alle benötigten SVN Variabeln gesetzt. (modulname)" />
-		<fail unless="SCM.workingDirectory" message="Es sind nicht alle benötigten SVN Variabeln gesetzt. (SCM.workingDirectory)" />
-		<fail unless="SCM.repository" message="Es sind nicht alle benötigten SVN Variabeln gesetzt. (SCM.repository)" />
-		<fail unless="SCM.tagToDeploy" message="Es sind nicht alle benötigten SVN Variabeln gesetzt. (SCM.tagToDeploy)" />
+		<fail unless="modulname" message="Not all Required SVN properties are set. (modulname)" />
+		<fail unless="SCM.workingDirectory" message="Not all Required SVN properties are set. (SCM.workingDirectory)" />
+		<fail unless="SCM.repository" message="Not all Required SVN properties are set. (SCM.repository)" />
+		<fail unless="SCM.tagToDeploy" message="Not all Required SVN properties are set. (SCM.tagToDeploy)" />
 		<fail unless="SCM.liveServer" message="Es sind nicht alle benötigten CVS Variabeln gesetzt. (SCM.liveServer)" />
 	</target>
 
