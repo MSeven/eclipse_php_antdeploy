@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- $Id: svn.xml 718 2009-02-11 16:05:23Z mgr2 $ -->
+<!-- $Id: svn.xml 720 2009-02-17 10:18:14Z mgr2 $ -->
 <!--
 	CVS Servicefunctions
 -->
@@ -17,8 +17,8 @@
 
 	<target name="svnCliTest">
 		<echo message=" --- SVN CLI TEST ---" />
-		<echo message=" Ueberpruefe auf SVN CLI client fuer eventuelle beschleunigung." />
-		<echo message=" Windows CLI SVN gibts z.b. hier: http://www.sliksvn.com/en/download" />
+		<echo message=" Checking for CLI SVN client." />
+		<echo message=" a CLI SVN to improve speeds may be found here: http://www.sliksvn.com/en/download" />
 		<exec executable="svn" failifexecutionfails="false" resultproperty="svnCliMissing">
 			<arg value="--version" />
 			<arg value="--quiet" />
@@ -37,7 +37,7 @@
 		<echo message=" --- /SVN ISCHECKEDOUT ---" />
 	</target>
 
-	<!-- Das modul in das SCMdir auschecken, wenn es noch nicht existiert -->
+	<!-- Checkout the project if the projectfolder doesn't exist -->
 	<target name="checkout" depends="setSCMLoginInformation, isCheckedOut,svnCliTest" unless="checkedOut">
 		<tstamp>
 			<format property="tmptime.checkout.start" pattern="HH:mm" />
@@ -53,7 +53,7 @@
 		<echo message=" --- /SVN CHECKOUT (${tmptime.checkout.end}) ---" />
 	</target>
 
-	<!-- Eine ausgecheckte Version aktualisieren -->
+	<!-- Update an existing SVN checkout. -->
 	<target name="updatebytag" depends="checkout, setSCMLoginInformation,svnCliTest">
 		<tstamp>
 			<format property="tmptime.updatet.start" pattern="HH:mm" />
@@ -68,7 +68,7 @@
 		<echo message=" --- /SVN UPDATEBY TAG (${tmptime.updatet.end}) ---" />
 	</target>
 
-	<!-- Das Tag für den aktuellen Server/das aktuelle Target setzen -->
+	<!-- Create tags for the current Version/Server -->
 	<target name="setTag" depends="setSCMLoginInformation, timestamp,svnCliTest">
 		<echo message=" --- SVN SET TAG ---" />
 		<svn username="${SCM.login}" password="${SCM.password}" failonerror="false" svnkit="${svnCliMissing}">
@@ -87,19 +87,19 @@
 		<echo message=" --- /SVN SET TAG ---" />
 	</target>
 
-	<!--	Changelog erstellen; die Unterschiede zwischen zwei Tags. -->
+	<!-- Create Changelog between 2 versions -->
 	<target name="generateChangelog" depends="checkVarsSCM,setSCMLoginInformation, timestamp,svnCliTest">
 		<echo message="--- SVN GENERATE CHANGELOG ---" />
 		<delete dir="${SCM.workingDirectory}/${modulname}/revision" />
 		<mkdir dir="${SCM.workingDirectory}/${modulname}/revision/${SCM.liveServer}" />
-		<!-- Checke die Files aus, aus denen die Revisionnummer abgelesen werden kann -->
+		<!-- Checkout the revision hint file containing the versionnumber. -->
 		<svn username="${SCM.login}" password="${SCM.password}" failonerror="false" svnkit="${svnCliMissing}">
 			<checkout url="${SCM.repository}/tags/${SCM.liveServer}/revision" destPath="${SCM.workingDirectory}/${modulname}/revision/${SCM.liveServer}" />
 		</svn>
 		<loadresource property="SCM.liveRevision" failonerror="false">
 			<file file="${SCM.workingDirectory}/${modulname}/revision/${SCM.liveServer}/${SCM.liveServer}.txt" />
 		</loadresource>
-		<!-- wenn SCM.liveRevision noch nicht gesetzt ist, ging etwas schief, evtl. wurde noch nie live deployed. also default setzen -->
+		<!-- if SCM.liveRevision is not set, something went wrong. Set default. -->
 		<property name="SCM.liveRevision" value="1" />
 
 		<!-- Fetch current Revisionnumber -->
