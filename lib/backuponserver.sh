@@ -8,10 +8,6 @@ FILENAME_PREFIX='${server.backupprefix}'
 MAX_FILES=${server.maxbackups}
 cd ${DIR}
 COUNT_FILES=`ls ${FILENAME_PREFIX}* 2>/dev/null | wc -l`
-if [ "$COUNT_FILES" -gt "$MAX_FILES" ]; then
-	echo "No files with prefix '$FILENAME_PREFIX' exist in '$DIR'"
-	exit
-fi
 NUMBER_TO_REMOVE=$(($COUNT_FILES - $MAX_FILES))
 if [ $NUMBER_TO_REMOVE -gt 0 ] ; then
         FILES_TO_REMOVE=`ls ${FILENAME_PREFIX}* | sort | head -${NUMBER_TO_REMOVE}`
