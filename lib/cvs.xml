@@ -7,7 +7,7 @@
 	<property file="cvsUserinfo.properties" />
 	<property file="SCM" />
 	<property name="SCM.tagToDeploy" value="HEAD" />
-	<property name="SCM.repository" value="cvs.esolut.de:/export/home/cvs/cvsroot" />
+	<property name="SCM.repository" value="cvs:/export/home/cvs/cvsroot" />
 	<!-- Java Magic, Copyright tki -->
 	<!-- Load Custom task from Lib directory -->
 	<path id="msdant.classpath">

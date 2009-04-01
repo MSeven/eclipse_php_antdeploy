@@ -147,4 +147,9 @@
 		<fail unless="SCM.liveServer" message="Es sind nicht alle benötigten CVS Variabeln gesetzt. (SCM.liveServer)" />
 	</target>
 
+	<target name="scmdiff" depends="checkVarsSCM">
+		<svn username="${SCM.login}" password="${SCM.password}" svnkit="${svnCliMissing}">
+			<diff oldPath="${SCM.workingDirectory}/${modulname}" outFile="${patchpath}" />
+		</svn>
+	</target>
 </project>

@@ -1,318 +1,291 @@
 <?xml version="1.0"?>
 <!-- $Id: build.xml 718 2009-02-11 16:05:23Z mgr2 $ -->
-<project name="esolut_Antdeploy"
-         basedir="."
-         default="deploy">
-  <loadproperties>
-    <!-- Load the specified server-property-file -->
-    <file file="${basedir}/conf/${modulname}/build_${target}.properties" />
-  </loadproperties>
-  <loadproperties>
-    <!-- Load the generic, project-wide Deploy Properties -->
-    <file file="${basedir}/conf/${modulname}/build.properties" />
-  </loadproperties>
-  <!-- Default Properties, may be Overwritten by .launch-file or CLI options. -->
-  <!-- zipformat (zip or tar.bz2) -->
-  <property name="zipFormat"
-            value="zip" />
-  <property name="zipfile"
-            value="${modulname}.${zipFormat}" />
-  <property name="mail.host"
-            value="172.16.20.100" />
-  <property name="SCM.workingDirectory"
-            value="${basedir}/scmwork" />
-  <!-- Server Defaults (do NOT enter a servername here!) -->
-  <property name="server.backupprefix"
-            value="${modulname}_${target}_backup_" />
-  <property name="server.backuppath"
-            value="/backups" />
-  <property name="server.maxbackups"
-            value="10" />
-  <!-- By default, include ALL files in a deploy (may be overwritten/extendend by zip.expludes) -->
-  <property name="zipincludes"
-            value="**" />
-  <!-- use SVN as default, May be set to cvs via .launch-file or CLI. -->
-  <property name="scm"
-            value="svn" />
-  <!-- Load the specified SCM adapter -->
-  <import file="${scm}.xml" />
-  <!-- Define the Deploy timestamp Once (used in deploy ID) -->
-  <target name="timestamp">
-    <tstamp>
-      <format property="timestamp"
-              pattern="yyyyMMdd_HHmm" />
-    </tstamp>
-  </target>
-  <!-- Resolve/Call the specified Compression Method. -->
-  <target name="ziplocal">
-    <condition property="zipUseGzip">
-      <not>
-        <equals arg1="${zipFormat}"
-                arg2="zip" />
-      </not>
-    </condition>
-    <antcall target="ziplocal_gzip" />
-    <antcall target="ziplocal_bz2" />
-  </target>
-  <!-- Compress files via Gzip (as .zip) while ignoring patterns specified in zip.excludes. -->
-  <target name="ziplocal_gzip"
-          unless="zipUseGzip">
-    <echo message=" --- ZIPLOCAL(Gzip) ---" />
-    <delete file="${SCM.workingDirectory}/${zipfile}" />
-    <zip destfile="${SCM.workingDirectory}/${zipfile}">
-      <fileset dir="${SCM.workingDirectory}/${modulname}">
-        <include name="${zipincludes}" />
-        <exclude name=".project" />
-        <exclude name=".settings" />
-        <exclude name="**/*.bat" />
-        <exclude name="revision/**" />
-        <exclude name="deploy/**" />
-        <patternset>
-          <excludesfile name="${basedir}/conf/${modulname}/zip.excludes" />
-          <excludesfile if="subdeploy"
-                        name="${basedir}/conf/${modulname}/sub_${subdeploy}.excludes" />
-        </patternset>
-      </fileset>
-    </zip>
-    <echo message=" --- /ZIPLOCAL ---" />
-  </target>
-  <!-- Compress files via tar/BZip2 (as .tar.bz2) while ignoring patterns specified in zip.excludes. -->
-  <target name="ziplocal_bz2"
-          if="zipUseGzip">
-    <echo message=" --- ZIPLOCAL(bz2) ---" />
-    <delete file="${SCM.workingDirectory}/${zipfile}" />
-    <tar destfile="${SCM.workingDirectory}/${zipfile}"
-         compression="bzip2"
-         longfile="gnu">
-      <fileset dir="${SCM.workingDirectory}/${modulname}">
-        <include name="${zipincludes}" />
-        <exclude name=".project" />
-        <exclude name=".settings" />
-        <exclude name="**/*.bat" />
-        <exclude name="revision/**" />
-        <exclude name="deploy/**" />
-        <patternset>
-          <excludesfile name="${basedir}/conf/${modulname}/zip.excludes" />
-          <excludesfile if="subdeploy"
-                        name="${basedir}/conf/${modulname}/sub_${subdeploy}.excludes" />
-        </patternset>
-      </fileset>
-    </tar>
-    <echo message=" --- /ZIPLOCAL ---" />
-  </target>
-  <!-- Start Upload and Backup tasks in parallel. Uses 2 connections, but speeds up deployment. -->
-  <target name="uploadAndBackupParallel">
-    <echo message=" --- UPLOAD AND BACKUP PARALLEL ---" />
-    <parallel>
-      <antcall target="scp2server" />
-      <antcall target="backuponserver" />
-    </parallel>
-    <echo message=" --- /UPLOAD AND BACKUP PARALLEL ---" />
-  </target>
-  <!-- Upload the Archive to the server. -->
-  <target name="scp2server">
-    <echo message=" --- SCP2SERVER (${server.name}:${server.path}) ---" />
-    <scp file="${SCM.workingDirectory}/${zipfile}"
-         todir="${server.login}@${server.name}:${server.path}/${zipfile}"
-         password="${server.password}"
-         trust="yes" />
-    <echo message=" --- /SCP2SERVER ---" />
-  </target>
-  <!-- Uncompress the uploaded Archive on the server, overwriting existing files. Execute optional generic and serverspecific scripts before and after. -->
-  <target name="unzipOnServer">
-    <echo message=" --- UNZIPONSERVER ---" />
-    <antcall target="execOnServer">
-      <param name="script_to_run"
-             value="conf/${modulname}/beforeunzip.sh" />
-    </antcall>
-    <antcall target="execOnServer">
-      <param name="script_to_run"
-             value="conf/${modulname}/beforeunzip_${target}.sh" />
-    </antcall>
-    <antcall target="execOnServer">
-      <param name="script_to_run"
-             value="lib/unziponserver_${zipFormat}.sh" />
-    </antcall>
-    <antcall target="execOnServer">
-      <param name="script_to_run"
-             value="conf/${modulname}/afterbuild.sh" />
-    </antcall>
-    <antcall target="execOnServer">
-      <param name="script_to_run"
-             value="conf/${modulname}/afterbuild_${target}.sh" />
-    </antcall>
-    <echo message=" --- /UNZIPONSERVER ---" />
-  </target>
-  <!-- Run Backup script on the server. Will back up currently deployed version and rotate backupfiles -->
-  <target name="backuponserver"
-          depends="timestamp">
-    <echo message=" --- BACKUPONSERVER ---" />
-    <loadfile property="backupExclude"
-              srcFile="${basedir}/conf/${modulname}/backup.excludes">
-              
-      <filterchain>
-        <expandproperties />
-        <tokenfilter>
-          <replaceregex pattern="^(.*)$"
-                        replace=" --exclude '\1'"
-                        flags="gim" />
-        </tokenfilter>
-        <striplinebreaks />
-      </filterchain>
-    </loadfile>
-    <antcall target="execOnServer">
-      <param name="script_to_run"
-             value="lib/backuponserver.sh" />
-    </antcall>
-    <echo message=" --- /BACKUPONSERVER ---" />
-  </target>
-  <!-- Check if a specified file exists, used for the server script execution wrapper. -->
-  <target name="execOnServerCheckCondition">
-    <condition property="executeGeneral">
-      <available file="${basedir}/${script_to_run}" />
-    </condition>
-  </target>
-  <!-- Server script Execution Wrapper. Execute a script on the server, if the specified file exists, else fail gracefully without terminating the build. -->
-  <target name="execOnServerCheck"
-          depends="execOnServerCheckCondition"
-          unless="executeGeneral">
-    <echo message=" --- ${basedir}/${script_to_run} NOT FOUND! ---" />
-  </target>
-  <!-- Execute the commands inside a local file line by line on the server. Will ignore common linecomment formats. -->
-  <target name="execOnServer"
-          depends="execOnServerCheck"
-          if="executeGeneral">
-    <echo message=" --- EXECONSERVER (${script_to_run}) ---" />
-    <loadfile property="shellscript"
-              srcFile="${basedir}/${script_to_run}"
-              failonerror="false">
-      <!-- windows zu unix umbruch umwandlung -->
-      <filterchain>
-        <striplinecomments>
-          <comment value="#" />
-          <comment value="--" />
-          <comment value="REM " />
-          <comment value="rem " />
-          <comment value="//" />
-        </striplinecomments>
-        <expandproperties />
-        <deletecharacters chars="\r" />
-      </filterchain>
-    </loadfile>
-    <echo message="mkdir ${server.path}/
-cd ${server.path}
-${shellscript}" />
-    <sshexec host="${server.name}"
-             username="${server.login}"
-             password="${server.password}"
-             trust="yes"
-             command="mkdir ${server.path}/
-cd ${server.path}
-${shellscript}" />
-    <echo message=" --- /EXECONSERVER (${script_to_run}) ---" />
-  </target>
-  <!-- SCM Update wrapper-->
-  <target name="update"
-          depends="checkout,updatebytag" />
-  <!-- Changelog mail check and Warning wrapper-->
-  <target name="sendMail_warning"
-          unless="mail.to">
-    <echo message=" #### KEIN MAIL VERSAND!! ####" />
-    <echo message=" #### property 'mail.to' nicht gesetzt.####" />
-  </target>
-  <!-- Deploy mail generation -->
-  <target name="sendMail"
-          if="mail.to"
-          depends="timestamp,sendMail_warning">
-    <echo message=" --- SEND MAIL ---" />
-    <antcall target="generateChangelog" />
-    <echo message="${mail.to}" />
-    <mail mailhost="${mail.host}"
-          subject="Deploy ${modulname} auf ${target} abgeschlossen [${timestamp}]."
-          tolist="${mail.to}"
-          messagemimetype="text/html"
-          encoding="plain"
-          messagefile="${SCM.workingDirectory}/${modulname}_changelog.html">
+<project name="esolut_Antdeploy" basedir="." default="deploy">
+	<fail unless="modulname" message="Not all required properties are set.(modulname)" />
+	<fail unless="target" message="Not all required properties are set.(target)" />
+	<loadproperties>
+		<!-- Load the specified server-property-file -->
+		<file file="${basedir}/conf/${modulname}/build_${target}.properties" />
+	</loadproperties>
+	<loadproperties>
+		<!-- Load the generic, project-wide Deploy Properties -->
+		<file file="${basedir}/conf/${modulname}/build.properties" />
+	</loadproperties>
+	<!-- Default Properties, may be Overwritten by .launch-file or CLI options. -->
+	<!-- zipformat (zip or tar.bz2) -->
+	<property name="zipFormat" value="zip" />
+	<property name="zipfile" value="${modulname}.${zipFormat}" />
+	<property name="mail.host" value="172.16.20.100" />
+	<property name="SCM.workingDirectory" value="${basedir}/scmwork" />
+	<!-- Server Defaults (do NOT enter a servername here!) -->
+	<property name="server.backupprefix" value="${modulname}_${target}_backup_" />
+	<property name="server.backuppath" value="/backups" />
+	<property name="server.maxbackups" value="10" />
+	<!-- By default, include ALL files in a deploy (may be overwritten/extendend by zip.expludes) -->
+	<property name="zipincludes" value="**" />
+	<!-- use SVN as default, May be set to cvs via .launch-file or CLI. -->
+	<property name="scm" value="svn" />
 
-      <from address="${modulname}.antdeploy@office-muc.esolut.de" />
-    </mail>
-    <echo message=" --- SEND MAIL ---" />
-  </target>
-  <!-- General Config Check Wrapper -->
-  <target name="checkconfig">
-    <echo message=" --- CHECK CONFIG ---" />
-    <antcall target="checkVarsSCM" />
-    <fail unless="modulname"
-          message="Not all required properties are set.(modulname)" />
-    <fail unless="zipincludes"
-          message="Not all required properties are set.(zipincludes)" />
-    <fail unless="server.login"
-          message="Not all required properties are set.(server.login)" />
-    <fail unless="server.name"
-          message="Not all required properties are set.(server.name)" />
-    <fail unless="server.path"
-          message="Not all required properties are set.(server.path)" />
-    <fail unless="server.password"
-          message="Not all required properties are set.(server.password)" />
-    <fail unless="target"
-          message="Not all required properties are set.(target)" />
-    <fail unless="mail.host"
-          message="Not all required properties are set.(mail.host)" />
-    <fail>Not all required Config/property files are available.
-    Please make sure the following files exist:
-    ${basedir}/conf/${modulname}/build.property
-    ${basedir}/conf/${modulname}/build_${target}.properties
-    ${basedir}/conf/${modulname}/zip.excludes)
-    ${basedir}/conf/${modulname}/backup.excludes) 
-    <condition>
-      <not>
-        <and>
-          <available file="${basedir}/conf/${modulname}/build.properties" />
-          <available file="${basedir}/conf/${modulname}/build_${target}.properties" />
-          <available file="${basedir}/conf/${modulname}/zip.excludes" />
-          <available file="${basedir}/conf/${modulname}/backup.excludes" />
-        </and>
-      </not>
-    </condition></fail>
-    <echo message=" --- /CHECK CONFIG ---" />
-  </target>
-  <!-- Normaler remote deploy -->
-  <target name="deploy"
-          depends="checkconfig,update,ziplocal,uploadAndBackupParallel,unzipOnServer,sendMail,setTag">
+	<!-- Load the specified SCM adapter -->
+	<import file="${scm}.xml" />
 
-    <echo message="Deploy Finished." />
-  </target>
-  <!-- Lokales Zipfile erstellen -->
-  <target name="deploy_localzip"
-          depends="checkconfig,update,ziplocal,sendMail,setTag">
-    <delete file="${basedir}/${zipfile}" />
-    <move file="${SCM.workingDirectory}/${zipfile}"
-          tofile="${basedir}/${zipfile}" />
-    <echo>******************************************************
-    Current version was saved Locally. ${basedir}\${zipfile}
-    ******************************************************</echo>
-    <echo message="Deploy Finished." />
-  </target>
-  <!-- Zipfile auf server erstellen -->
-  <target name="deploy_serverzip">
-    <antcall target="checkconfig" />
-    <antcall target="update" />
-    <antcall target="ziplocal" />
-    <antcall target="scp2server" />
-    <antcall target="execOnServer">
-      <param name="script_to_run"
-             value="conf/${modulname}/serverzip.sh" />
-    </antcall>
-    <antcall target="sendMail" />
-    <antcall target="setTag" />
-    <delete file="${basedir}/${zipfile}" />
-    <move file="${SCM.workingDirectory}/${zipfile}"
-          tofile="${basedir}/${zipfile}" />
-    <echo>******************************************************
-    Current version was placed on the server as downloadable
-    archive aswell as saved Locally.
-    scp://${server.name}/${server.path} ${basedir}\${zipfile}
-    ******************************************************</echo>
-    <echo message="Deploy Finished." />
-  </target>
+	<!-- Define the Deploy timestamp Once (used in deploy ID) -->
+	<target name="timestamp">
+		<tstamp>
+			<format property="timestamp" pattern="yyyyMMdd_HHmm" />
+		</tstamp>
+	</target>
+
+	<!-- Resolve/Call the specified Compression Method. -->
+	<target name="ziplocal">
+		<condition property="zipUseGzip">
+			<not>
+				<equals arg1="${zipFormat}" arg2="zip" />
+			</not>
+		</condition>
+		<antcall target="ziplocal_gzip" />
+		<antcall target="ziplocal_bz2" />
+	</target>
+
+	<!-- Compress files via Gzip (as .zip) while ignoring patterns specified in zip.excludes. -->
+	<target name="ziplocal_gzip" unless="zipUseGzip">
+		<echo message=" --- ZIPLOCAL(Gzip) ---" />
+		<delete file="${SCM.workingDirectory}/${zipfile}" />
+		<zip destfile="${SCM.workingDirectory}/${zipfile}">
+			<fileset dir="${SCM.workingDirectory}/${modulname}">
+				<include name="${zipincludes}" />
+				<exclude name=".project" />
+				<exclude name=".settings" />
+				<exclude name="**/*.bat" />
+				<exclude name="revision/**" />
+				<exclude name="deploy/**" />
+				<patternset>
+					<excludesfile name="${basedir}/conf/${modulname}/zip.excludes" />
+					<excludesfile if="subdeploy" name="${basedir}/conf/${modulname}/sub_${subdeploy}.excludes" />
+				</patternset>
+			</fileset>
+		</zip>
+		<echo message=" --- /ZIPLOCAL ---" />
+	</target>
+
+	<!-- Compress files via tar/BZip2 (as .tar.bz2) while ignoring patterns specified in zip.excludes. -->
+	<target name="ziplocal_bz2" if="zipUseGzip">
+		<echo message=" --- ZIPLOCAL(bz2) ---" />
+		<delete file="${SCM.workingDirectory}/${zipfile}" />
+		<tar destfile="${SCM.workingDirectory}/${zipfile}" compression="bzip2" longfile="gnu">
+			<fileset dir="${SCM.workingDirectory}/${modulname}">
+				<include name="${zipincludes}" />
+				<exclude name=".project" />
+				<exclude name=".settings" />
+				<exclude name="**/*.bat" />
+				<exclude name="revision/**" />
+				<exclude name="deploy/**" />
+				<patternset>
+					<excludesfile name="${basedir}/conf/${modulname}/zip.excludes" />
+					<excludesfile if="subdeploy" name="${basedir}/conf/${modulname}/sub_${subdeploy}.excludes" />
+				</patternset>
+			</fileset>
+		</tar>
+		<echo message=" --- /ZIPLOCAL ---" />
+	</target>
+
+	<!-- Start Upload and Backup tasks in parallel. Uses 2 connections, but speeds up deployment. -->
+	<target name="uploadAndBackupParallel">
+		<echo message=" --- UPLOAD AND BACKUP PARALLEL ---" />
+		<parallel>
+			<antcall target="scp2server" />
+			<antcall target="backuponserver" />
+		</parallel>
+		<echo message=" --- /UPLOAD AND BACKUP PARALLEL ---" />
+	</target>
+
+	<!-- Upload the Archive to the server. -->
+	<target name="scp2server">
+		<echo message=" --- SCP2SERVER (${server.name}:${server.path}) ---" />
+		<scp file="${SCM.workingDirectory}/${zipfile}" todir="${server.login}@${server.name}:${server.path}/${zipfile}" password="${server.password}" trust="yes" />
+		<echo message=" --- /SCP2SERVER ---" />
+	</target>
+
+	<!-- Uncompress the uploaded Archive on the server, overwriting existing files. Execute optional generic and serverspecific scripts before and after. -->
+	<target name="unzipOnServer">
+		<echo message=" --- UNZIPONSERVER ---" />
+		<antcall target="execOnServer">
+			<param name="script_to_run" value="conf/${modulname}/beforeunzip.sh" />
+		</antcall>
+		<antcall target="execOnServer">
+			<param name="script_to_run" value="conf/${modulname}/beforeunzip_${target}.sh" />
+		</antcall>
+		<antcall target="execOnServer">
+			<param name="script_to_run" value="lib/unziponserver_${zipFormat}.sh" />
+		</antcall>
+		<antcall target="execOnServer">
+			<param name="script_to_run" value="conf/${modulname}/afterbuild.sh" />
+		</antcall>
+		<antcall target="execOnServer">
+			<param name="script_to_run" value="conf/${modulname}/afterbuild_${target}.sh" />
+		</antcall>
+		<echo message=" --- /UNZIPONSERVER ---" />
+	</target>
+
+	<!-- Run Backup script on the server. Will back up currently deployed version and rotate backupfiles -->
+	<target name="backuponserver" depends="timestamp">
+		<echo message=" --- BACKUPONSERVER ---" />
+		<loadfile property="backupExclude" srcFile="${basedir}/conf/${modulname}/backup.excludes">
+			<filterchain>
+				<expandproperties />
+				<tokenfilter>
+					<replaceregex pattern="^(.*)$" replace=" --exclude '\1'" flags="gim" />
+				</tokenfilter>
+				<striplinebreaks />
+			</filterchain>
+		</loadfile>
+		<antcall target="execOnServer">
+			<param name="script_to_run" value="lib/backuponserver.sh" />
+		</antcall>
+		<echo message=" --- /BACKUPONSERVER ---" />
+	</target>
+
+	<!-- Check if a specified file exists, used for the server script execution wrapper. -->
+	<target name="execOnServerCheckCondition">
+		<condition property="executeGeneral">
+			<available file="${basedir}/${script_to_run}" />
+		</condition>
+	</target>
+
+	<!-- Server script Execution Wrapper. Execute a script on the server, if the specified file exists, else fail gracefully without terminating the build. -->
+	<target name="execOnServerCheck" depends="execOnServerCheckCondition" unless="executeGeneral">
+		<echo message=" --- ${basedir}/${script_to_run} NOT FOUND! ---" />
+	</target>
+
+	<!-- Execute the commands inside a local file line by line on the server. Will ignore common linecomment formats. -->
+	<target name="execOnServer" depends="execOnServerCheck" if="executeGeneral">
+		<echo message=" --- EXECONSERVER (${script_to_run}) ---" />
+		<loadfile property="shellscript" srcFile="${basedir}/${script_to_run}" failonerror="false">
+			<!-- windows zu unix umbruch umwandlung -->
+			<filterchain>
+				<striplinecomments>
+					<comment value="#" />
+					<comment value="--" />
+					<comment value="REM " />
+					<comment value="rem " />
+					<comment value="//" />
+				</striplinecomments>
+				<expandproperties />
+				<deletecharacters chars="\r" />
+			</filterchain>
+		</loadfile>
+		<echo message="mkdir ${server.path}/&#10;cd ${server.path}&#10;${shellscript}" />
+		<sshexec host="${server.name}" username="${server.login}" password="${server.password}" trust="yes" command="mkdir ${server.path}/&#10;cd ${server.path}&#10;${shellscript}" />
+		<echo message=" --- /EXECONSERVER (${script_to_run}) ---" />
+	</target>
+
+	<!-- SCM Update wrapper-->
+	<target name="update" depends="checkout,updatebytag" />
+
+
+	<!-- Changelog mail check and Warning wrapper-->
+	<target name="sendMail_warning" unless="mail.to">
+		<echo message=" #### KEIN MAIL VERSAND!! ####" />
+		<echo message=" #### property 'mail.to' nicht gesetzt.####" />
+	</target>
+
+	<!-- Deploy mail generation -->
+	<target name="sendMail" if="mail.to" depends="timestamp,sendMail_warning">
+		<echo message=" --- SEND MAIL ---" />
+		<antcall target="generateChangelog" />
+		<echo message="${mail.to}" />
+		<mail mailhost="${mail.host}" subject="Deploy ${modulname} auf ${target} abgeschlossen [${timestamp}]." tolist="${mail.to}" messagemimetype="text/html" encoding="plain" messagefile="${SCM.workingDirectory}/${modulname}_changelog.html">
+			<from address="${modulname}.antdeploy@office-muc.esolut.de" />
+		</mail>
+		<echo message=" --- SEND MAIL ---" />
+	</target>
+
+	<!-- General Config Check Wrapper -->
+	<target name="checkconfig">
+		<echo message=" --- CHECK CONFIG ---" />
+		<antcall target="checkVarsSCM" />
+		<fail unless="modulname" message="Not all required properties are set.(modulname)" />
+		<fail unless="zipincludes" message="Not all required properties are set.(zipincludes)" />
+		<fail unless="server.login" message="Not all required properties are set.(server.login)" />
+		<fail unless="server.name" message="Not all required properties are set.(server.name)" />
+		<fail unless="server.path" message="Not all required properties are set.(server.path)" />
+		<fail unless="server.password" message="Not all required properties are set.(server.password)" />
+		<fail unless="target" message="Not all required properties are set.(target)" />
+		<fail unless="mail.host" message="Not all required properties are set.(mail.host)" />
+		<fail>
+			Not all required Config/property files are available.
+			Please make sure the following files exist:
+						${basedir}/conf/${modulname}/build.property
+						${basedir}/conf/${modulname}/build_${target}.properties
+						${basedir}/conf/${modulname}/zip.excludes)
+						${basedir}/conf/${modulname}/backup.excludes)
+			<condition>
+				<not>
+					<and>
+						<available file="${basedir}/conf/${modulname}/build.properties" />
+						<available file="${basedir}/conf/${modulname}/build_${target}.properties" />
+						<available file="${basedir}/conf/${modulname}/zip.excludes" />
+						<available file="${basedir}/conf/${modulname}/backup.excludes" />
+					</and>
+				</not>
+			</condition>
+		</fail>
+		<echo message=" --- /CHECK CONFIG ---" />
+	</target>
+
+	<!-- Normaler remote deploy -->
+	<target name="deploy" depends="checkconfig,update,ziplocal,uploadAndBackupParallel,unzipOnServer,sendMail,setTag">
+		<echo message="Deploy Finished." />
+	</target>
+	<!-- Lokales Zipfile erstellen -->
+	<target name="deploy_localzip" depends="checkconfig,update,ziplocal,sendMail,setTag">
+		<delete file="${basedir}/${zipfile}" />
+		<move file="${SCM.workingDirectory}/${zipfile}" tofile="${basedir}/${zipfile}" />
+		<echo>
+		******************************************************
+		Current version was saved Locally.
+		${basedir}\${zipfile}
+		******************************************************
+		</echo>
+		<echo message="Deploy Finished." />
+	</target>
+
+	<!-- Zipfile auf server erstellen -->
+	<target name="deploy_serverzip">
+		<antcall target="checkconfig" />
+		<antcall target="update" />
+		<antcall target="ziplocal" />
+		<antcall target="scp2server" />
+		<antcall target="execOnServer">
+			<param name="script_to_run" value="conf/${modulname}/serverzip.sh" />
+		</antcall>
+		<antcall target="sendMail" />
+		<antcall target="setTag" />
+		<delete file="${basedir}/${zipfile}" />
+		<move file="${SCM.workingDirectory}/${zipfile}" tofile="${basedir}/${zipfile}" />
+		<echo>
+		******************************************************
+		Current version was placed on the server as downloadable archive aswell as saved Locally.
+		scp://${server.name}/${server.path}
+		${basedir}\${zipfile}
+		******************************************************
+		</echo>
+		<echo message="Deploy Finished." />
+	</target>
+	<target name="fetch_from_server">
+		<property name="serverzip" value="serverzip.tar.gz" />
+		<property name="patchpath" value="${basedir}/../${modulname}_${target}_diff.patch" />
+		<antcall target="checkconfig" />
+		<delete file="${basedir}/${serverzip}" />
+		<delete file="${patchpath}" />
+		<antcall target="update" />
+		<antcall target="execOnServer">
+			<param name="script_to_run" value="lib/serverzip.sh" />
+		</antcall>
+		<scp file="${server.login}@${server.name}:${server.path}/${serverzip}" todir="${SCM.workingDirectory}/" password="${server.password}" trust="yes" />
+		<untar src="${SCM.workingDirectory}/${serverzip}" dest="${SCM.workingDirectory}/${modulname}/" compression="gzip" />
+		<delete file="${basedir}/${serverzip}" />
+		<sshexec host="${server.name}" username="${server.login}" password="${server.password}" trust="yes" command="rm ${server.path}/${serverzip}" />
+		<antcall target="scmdiff" />
+	</target>
 </project>
