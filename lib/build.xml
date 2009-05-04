@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- $Id: build.xml 718 2009-02-11 16:05:23Z mgr2 $ -->
+<!-- $Id: build.xml 818 2009-05-04 11:30:47Z mgr2 $ -->
 <project name="esolut_Antdeploy" basedir="." default="deploy">
 	<fail unless="modulname" message="Not all required properties are set.(modulname)" />
 	<fail unless="target" message="Not all required properties are set.(target)" />
@@ -174,8 +174,8 @@
 				<deletecharacters chars="\r" />
 			</filterchain>
 		</loadfile>
-		<echo message="mkdir ${server.path}/&#10;cd ${server.path}&#10;${shellscript}" />
-		<sshexec host="${server.name}" username="${server.login}" password="${server.password}" trust="yes" command="mkdir ${server.path}/&#10;cd ${server.path}&#10;${shellscript}" />
+		<echo message="mkdir -p ${server.path}/&#10;cd ${server.path}&#10;${shellscript}" />
+		<sshexec host="${server.name}" username="${server.login}" password="${server.password}" trust="yes" command="mkdir -p ${server.path}/&#10;cd ${server.path}&#10;${shellscript}" />
 		<echo message=" --- /EXECONSERVER (${script_to_run}) ---" />
 	</target>
 
