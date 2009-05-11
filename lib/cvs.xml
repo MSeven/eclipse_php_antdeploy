@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- $Id: cvs.xml 720 2009-02-17 10:18:14Z mgr2 $ -->
+<!-- $Id: cvs.xml 821 2009-05-11 11:12:42Z mgr2 $ -->
 <!--
 	CVS Servicefunctions
 -->
@@ -8,17 +8,6 @@
 	<property file="SCM" />
 	<property name="SCM.tagToDeploy" value="HEAD" />
 	<property name="SCM.repository" value="cvs:/export/home/cvs/cvsroot" />
-	<!-- Java Magic, Copyright tki -->
-	<!-- Load Custom task from Lib directory -->
-	<path id="msdant.classpath">
-		<fileset dir="${basedir}/lib/">
-			<include name="php-ant.jar" />
-		</fileset>
-	</path>
-	<taskdef classpathref="msdant.classpath" resource="de/esolut/tools/ant/taskdefs/msd/defaults.properties" />
-	<!-- Execute custom function to fetch machine name. -->
-	<hostname property="hostname" />
-	<!-- Magic end -->
 
 	<!-- Checkout the project if the projectfolder doesn't exist -->
 	<target name="checkout" depends="setCvsLoginInformation, isCheckedOut" unless="checkedOut">
@@ -76,7 +65,7 @@
 		<echo message="*****************************************************************" />
 		<delete file="${SCM.workingDirectory}/${modulname}_changelog.xml" />
 
-		<msdcvschangelog dir="${SCM.workingDirectory}/${modulname}" cvsRoot=":pserver:${SCM.login}:${SCM.password}@${SCM.repository}" destfile="${SCM.workingDirectory}/${modulname}_changelog.xml" tag="${SCM.liveServer}::${SCM.tagToDeploy}" failonerror="false" />
+		<cvschangelog dir="${SCM.workingDirectory}/${modulname}" cvsRoot=":pserver:${SCM.login}:${SCM.password}@${SCM.repository}" destfile="${SCM.workingDirectory}/${modulname}_changelog.xml" tag="${SCM.liveServer}::${SCM.tagToDeploy}" failonerror="false" quiet="true" />
 
 		<echo message="--- Changelog XSL Transformation ---" />
 		<delete file="${SCM.workingDirectory}/${modulname}_changelog.html" />
