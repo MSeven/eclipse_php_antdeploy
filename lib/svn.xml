@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- $Id: svn.xml 720 2009-02-17 10:18:14Z mgr2 $ -->
+<!-- $Id: svn.xml 824 2009-05-11 12:35:53Z mgr2 $ -->
 <!--
 	CVS Servicefunctions
 -->
@@ -15,7 +15,7 @@
 	<!--  load the svn task	  -->
 	<typedef resource="org/tigris/subversion/svnant/svnantlib.xml" classpathref="svnant.classpath" />
 
-	<target name="svnCliTest">
+	<target name="svnCliTest" unless="svnCliMissing">
 		<echo message=" --- SVN CLI TEST ---" />
 		<echo message=" Checking for CLI SVN client." />
 		<echo message=" a CLI SVN to improve speeds may be found here: http://www.sliksvn.com/en/download" />
@@ -71,16 +71,15 @@
 	<!-- Create tags for the current Version/Server -->
 	<target name="setTag" depends="setSCMLoginInformation, timestamp,svnCliTest">
 		<echo message=" --- SVN SET TAG ---" />
-		<svn username="${SCM.login}" password="${SCM.password}" failonerror="false" svnkit="${svnCliMissing}">
-			<status path="${SCM.workingDirectory}/${modulname}" lastChangedRevisionProperty="SCM.deployRevision" />
+		<svn username="${SCM.login}" password="${SCM.password}" failonerror="false">
+			<status path="${SCM.workingDirectory}/${modulname}/" revisionProperty="SCM.deployRevision" />
 			<delete url="${SCM.repository}/tags/${target}" message="AntDeploy_${target}_${timestamp}" />
 			<copy srcUrl="${SCM.repository}/${SCM.tagToDeploy}" destUrl="${SCM.repository}/tags/${target}" message="AntDeploy_${timestamp}" />
 			<copy srcUrl="${SCM.repository}/${SCM.tagToDeploy}" destUrl="${SCM.repository}/tags/${target}_${timestamp}" message="AntDeploy_${timestamp}" />
 		</svn>
+		<fail unless="SCM.deployRevision" message="Could not determine SCM.deployRevision" />
+		<echo message="Setting ${target} to ${SCM.deployRevision}" />
 		<concat destfile="${SCM.workingDirectory}/${modulname}/revision/${target}.txt">${SCM.deployRevision}</concat>
-		<svn username="${SCM.login}" password="${SCM.password}" failonerror="false" svnkit="${svnCliMissing}">
-			<delete url="${SCM.repository}/tags/${target}/revision/${target}.txt" message="AntDeploy_${timestamp}" />
-		</svn>
 		<svn username="${SCM.login}" password="${SCM.password}" svnkit="${svnCliMissing}">
 			<import path="${SCM.workingDirectory}/${modulname}/revision/${target}.txt" url="${SCM.repository}/tags/${target}/revision/${target}.txt" message="AntDeploy_${timestamp}" />
 		</svn>
@@ -93,9 +92,11 @@
 		<delete dir="${SCM.workingDirectory}/${modulname}/revision" />
 		<mkdir dir="${SCM.workingDirectory}/${modulname}/revision/${SCM.liveServer}" />
 		<!-- Checkout the revision hint file containing the versionnumber. -->
+		<echo message="Fetching revision-hint file" />
 		<svn username="${SCM.login}" password="${SCM.password}" failonerror="false" svnkit="${svnCliMissing}">
 			<checkout url="${SCM.repository}/tags/${SCM.liveServer}/revision" destPath="${SCM.workingDirectory}/${modulname}/revision/${SCM.liveServer}" />
 		</svn>
+		<echo message="Loading revision-hint file" />
 		<loadresource property="SCM.liveRevision" failonerror="false">
 			<file file="${SCM.workingDirectory}/${modulname}/revision/${SCM.liveServer}/${SCM.liveServer}.txt" />
 		</loadresource>
@@ -103,13 +104,15 @@
 		<property name="SCM.liveRevision" value="1" />
 
 		<!-- Fetch current Revisionnumber -->
-		<svn username="${SCM.login}" password="${SCM.password}" svnkit="${svnCliMissing}">
-			<status path="${SCM.workingDirectory}/${modulname}" lastChangedRevisionProperty="SCM.deployRevision" />
+		<echo message="Fetching Current Revision Number" />
+		<svn username="${SCM.login}" password="${SCM.password}">
+			<status path="${SCM.workingDirectory}/${modulname}/" revisionProperty="SCM.deployRevision" />
 		</svn>
 
 		<!-- get DIFF between current and last live revisions. -->
 		<echo message="Deploy: ${SCM.deployRevision}" />
 		<echo message="Live: ${SCM.liveRevision}" />
+
 		<exec executable="svn" output="${SCM.workingDirectory}/${modulname}_changelog.xml">
 			<arg value="log" />
 			<arg value="${SCM.repository}/${SCM.tagToDeploy}" />
@@ -152,4 +155,5 @@
 			<diff oldPath="${SCM.workingDirectory}/${modulname}" outFile="${patchpath}" />
 		</svn>
 	</target>
+
 </project>
