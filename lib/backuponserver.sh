@@ -1,7 +1,7 @@
 #!/bin/bash
 #$Id: backuponserver.sh,v 1.4 2007/01/30 12:07:17 mgr2 Exp $
 echo 'Running TAR'
-tar czf ${server.backuppath}/$HOSTNAME/apps/${server.backupprefix}${timestamp}.tar.gz --exclude='${zipfile}' --exclude='*/.cvsignore' --exclude='*/.svn/*' ${backupExclude} *
+tar cjf ${server.backuppath}/$HOSTNAME/apps/${server.backupprefix}${timestamp}.tar.bz2 --exclude='${zipfile}' --exclude='*/.cvsignore' --exclude='*/.svn/*' ${backupExclude} *
 echo 'Rotating Backups (${server.maxbackups} retained)'
 DIR=${server.backuppath}/${HOSTNAME}/apps/
 FILENAME_PREFIX='${server.backupprefix}'
