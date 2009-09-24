@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- $Id: build.xml 818 2009-05-04 11:30:47Z mgr2 $ -->
+
 <project name="esolut_Antdeploy" basedir="." default="deploy">
 	<fail unless="modulname" message="Not all required properties are set.(modulname)" />
 	<fail unless="target" message="Not all required properties are set.(target)" />
@@ -234,11 +234,23 @@
 	</target>
 
 	<!-- Normaler remote deploy -->
-	<target name="deploy" depends="checkconfig,update,ziplocal,uploadAndBackupParallel,unzipOnServer,sendMail,setTag">
+	<target name="deploy">
+		<antcall target="checkconfig" />
+		<antcall target="update" />
+		<antcall target="ziplocal" />
+		<antcall target="uploadAndBackupParallel" />
+		<antcall target="unzipOnServer" />
+		<antcall target="sendMail" />
+		<antcall target="setTag" />
 		<echo message="Deploy Finished." />
 	</target>
 	<!-- Lokales Zipfile erstellen -->
-	<target name="deploy_localzip" depends="checkconfig,update,ziplocal,sendMail,setTag">
+	<target name="deploy_localzip">
+		<antcall target="checkconfig" />
+		<antcall target="update" />
+		<antcall target="ziplocal" />
+		<antcall target="sendMail" />
+		<antcall target="setTag" />
 		<delete file="${basedir}/${zipfile}" />
 		<move file="${SCM.workingDirectory}/${zipfile}" tofile="${basedir}/${zipfile}" />
 		<echo>
@@ -272,6 +284,7 @@
 		</echo>
 		<echo message="Deploy Finished." />
 	</target>
+
 	<target name="fetch_from_server">
 		<property name="serverzip" value="serverzip.tar.gz" />
 		<property name="patchpath" value="${basedir}/../${modulname}_${target}_diff.patch" />
