@@ -25,7 +25,7 @@
 		<xsl:param name="SCMuser" />
 		<xsl:param name="SCMhistorytag" />
 		<xsl:param name="SCMweb" />
-		<xsl:output method="html" indent="yes" encoding="US-ASCII" doctype-public="-//W3C//DTD HTML 4.01//EN" doctype-system="http://www.w3.org/TR/html401/strict.dtd" />
+		<xsl:output method="html" indent="yes" encoding="UTF-8" doctype-public="-//W3C//DTD HTML 4.01//EN" doctype-system="http://www.w3.org/TR/html401/strict.dtd" />
 		<!-- Copy standard document elements.  Elements that
 				should be ignored must be filtered by apply-templates
 				tags. -->
@@ -110,11 +110,9 @@
 		<xsl:template match="logentry">
 				<tr>
 						<td class="dateAndAuthor">
-								<xsl:value-of select="date" />
-								<xsl:text>
-					&nbsp;
-				</xsl:text>
-								<xsl:value-of select="time" />
+								<xsl:call-template name="FormatDate">
+										<xsl:with-param name="DateTime" select="date" />
+								</xsl:call-template>
 								<xsl:text>
 					&nbsp;
 				</xsl:text>
@@ -156,5 +154,27 @@
 				so that we can preserve HTML tags. -->
 		<xsl:template match="msg">
 				<xsl:apply-templates />
+		</xsl:template>
+		<xsl:template name="FormatDate">
+				<xsl:param name="DateTime" />
+				<xsl:variable name="year">
+						<xsl:value-of select="substring($DateTime,1,4)" />
+				</xsl:variable>
+				<xsl:variable name="month">
+						<xsl:value-of select="substring($DateTime,6,2)" />
+				</xsl:variable>
+				<xsl:variable name="day">
+						<xsl:value-of select="substring($DateTime,9,2)" />
+				</xsl:variable>
+				<xsl:variable name="time">
+						<xsl:value-of select="substring($DateTime,12,8)" />
+				</xsl:variable>
+				<xsl:value-of select="$day" />
+				<xsl:text>.</xsl:text>
+				<xsl:value-of select="$month" />
+				<xsl:text>.</xsl:text>
+				<xsl:value-of select="$year" />
+				<xsl:text>&nbsp;</xsl:text>
+				<xsl:value-of select="$time" />
 		</xsl:template>
 </xsl:stylesheet>
