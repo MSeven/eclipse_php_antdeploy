@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- $Id: svn.xml 824 2009-05-11 12:35:53Z mgr2 $ -->
+<!-- $Id: svn.xml 907 2009-11-11 16:45:49Z mgr2 $ -->
 <!--
 	CVS Servicefunctions
 -->
@@ -60,11 +60,15 @@
 		</tstamp>
 		<echo message=" --- SVN UPDATE BY TAG (${tmptime.updatet.start}) ---" />
 		<svn username="${SCM.login}" password="${SCM.password}" svnkit="${svnCliMissing}">
-			<update dir="${SCM.workingDirectory}/${modulname}" />
+			<switch path="${SCM.workingDirectory}/${modulname}" url="${SCM.repository}/${SCM.tagToDeploy}" />
 		</svn>
 		<tstamp>
 			<format property="tmptime.updatet.end" pattern="HH:mm" />
 		</tstamp>
+		<echo message="if this fails, check your tag." />
+		<echo message="tags have to bedefined as relative path from SVNroot." />
+		<echo message="eg. 'tags/stage' instead of 'stage'" />
+		<echo message="current tag is ${SCM.tagToDeploy}" />
 		<echo message=" --- /SVN UPDATEBY TAG (${tmptime.updatet.end}) ---" />
 	</target>
 
@@ -79,27 +83,28 @@
 		</svn>
 		<fail unless="SCM.deployRevision" message="Could not determine SCM.deployRevision" />
 		<echo message="Setting ${target} to ${SCM.deployRevision}" />
-		<concat destfile="${SCM.workingDirectory}/${modulname}/revision/${target}.txt">${SCM.deployRevision}</concat>
+		<concat destfile="${SCM.workingDirectory}/${modulname}/revision_work/${target}.txt">${SCM.deployRevision}</concat>
 		<svn username="${SCM.login}" password="${SCM.password}" svnkit="${svnCliMissing}">
-			<import path="${SCM.workingDirectory}/${modulname}/revision/${target}.txt" url="${SCM.repository}/tags/${target}/revision/${target}.txt" message="AntDeploy_${timestamp}" />
+			<import path="${SCM.workingDirectory}/${modulname}/revision_work/${target}.txt" url="${SCM.repository}/tags/${target}/revision/${target}.txt" message="AntDeploy_${timestamp}" />
 		</svn>
+		<delete dir="${SCM.workingDirectory}/${modulname}/revision_work" />
 		<echo message=" --- /SVN SET TAG ---" />
 	</target>
 
 	<!-- Create Changelog between 2 versions -->
 	<target name="generateChangelog" depends="checkVarsSCM,setSCMLoginInformation, timestamp,svnCliTest">
 		<echo message="--- SVN GENERATE CHANGELOG ---" />
-		<delete dir="${SCM.workingDirectory}/${modulname}/revision" />
-		<mkdir dir="${SCM.workingDirectory}/${modulname}/revision/${SCM.liveServer}" />
+		<mkdir dir="${SCM.workingDirectory}/${modulname}/revision_work/${SCM.liveServer}" />
 		<!-- Checkout the revision hint file containing the versionnumber. -->
 		<echo message="Fetching revision-hint file" />
 		<svn username="${SCM.login}" password="${SCM.password}" failonerror="false" svnkit="${svnCliMissing}">
-			<checkout url="${SCM.repository}/tags/${SCM.liveServer}/revision" destPath="${SCM.workingDirectory}/${modulname}/revision/${SCM.liveServer}" />
+			<checkout url="${SCM.repository}/tags/${SCM.liveServer}/revision" destPath="${SCM.workingDirectory}/${modulname}/revision_work/${SCM.liveServer}" />
 		</svn>
 		<echo message="Loading revision-hint file" />
 		<loadresource property="SCM.liveRevision" failonerror="false">
-			<file file="${SCM.workingDirectory}/${modulname}/revision/${SCM.liveServer}/${SCM.liveServer}.txt" />
+			<file file="${SCM.workingDirectory}/${modulname}/revision_work/${SCM.liveServer}/${SCM.liveServer}.txt" />
 		</loadresource>
+		<delete dir="${SCM.workingDirectory}/${modulname}/revision_work" />
 		<!-- if SCM.liveRevision is not set, something went wrong. Set default. -->
 		<property name="SCM.liveRevision" value="1" />
 
