@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- $Id: svn.xml 907 2009-11-11 16:45:49Z mgr2 $ -->
 <!--
-	CVS Servicefunctions
+	SVN Servicefunctions
 -->
 <project name="SCM_svn_include" basedir=".">
 	<property name="SCM.tagToDeploy" value="trunk" />
@@ -60,6 +60,7 @@
 		</tstamp>
 		<echo message=" --- SVN UPDATE BY TAG (${tmptime.updatet.start}) ---" />
 		<svn username="${SCM.login}" password="${SCM.password}" svnkit="${svnCliMissing}">
+			<revert dir="${SCM.workingDirectory}/${modulname}" recurse="true" />
 			<switch path="${SCM.workingDirectory}/${modulname}" url="${SCM.repository}/${SCM.tagToDeploy}" />
 		</svn>
 		<tstamp>
@@ -75,7 +76,7 @@
 	<!-- Create tags for the current Version/Server -->
 	<target name="setTag" depends="setSCMLoginInformation, timestamp,svnCliTest">
 		<echo message=" --- SVN SET TAG ---" />
-		<svn username="${SCM.login}" password="${SCM.password}" failonerror="false">
+		<svn username="${SCM.login}" password="${SCM.password}" failonerror="false" svnkit="${svnCliMissing}">
 			<status path="${SCM.workingDirectory}/${modulname}/" revisionProperty="SCM.deployRevision" />
 			<delete url="${SCM.repository}/tags/${target}" message="AntDeploy_${target}_${timestamp}" />
 			<copy srcUrl="${SCM.repository}/${SCM.tagToDeploy}" destUrl="${SCM.repository}/tags/${target}" message="AntDeploy_${timestamp}" />
@@ -110,7 +111,7 @@
 
 		<!-- Fetch current Revisionnumber -->
 		<echo message="Fetching Current Revision Number" />
-		<svn username="${SCM.login}" password="${SCM.password}">
+		<svn username="${SCM.login}" password="${SCM.password}" svnkit="${svnCliMissing}">
 			<status path="${SCM.workingDirectory}/${modulname}/" revisionProperty="SCM.deployRevision" />
 		</svn>
 
