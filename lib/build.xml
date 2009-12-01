@@ -38,6 +38,9 @@
 
 	<!-- Resolve/Call the specified Compression Method. -->
 	<target name="ziplocal">
+		<antcall target="beforezip">
+			<param name="script_to_run" value="conf\${modulname}\beforezip.bat" />
+		</antcall>
 		<condition property="zipUseGzip">
 			<not>
 				<equals arg1="${zipFormat}" arg2="zip" />
@@ -45,6 +48,25 @@
 		</condition>
 		<antcall target="ziplocal_gzip" />
 		<antcall target="ziplocal_bz2" />
+	</target>
+
+	<target name="beforezip" depends="execOnServerCheck" if="executeGeneral">
+		<echo message="${script_to_run}" />
+		<exec executable="cmd">
+			<arg value="/c" />
+			<arg value="${script_to_run}" />
+			<arg value="-p" />
+			<arg value="${SCM.workingDirectory}/${modulname}" />
+		</exec>
+	</target>
+
+
+
+	<!-- Build/Compile/ZIP/Copy the JAVA web application  -->
+	<target name="ziplocalJava">
+		<subant target="build-java" inheritall="true">
+			<fileset dir="${java.build.home}" includes="build.xml" />
+		</subant>
 	</target>
 
 	<!-- Compress files via Gzip (as .zip) while ignoring patterns specified in zip.excludes. -->
