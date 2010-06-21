@@ -1,0 +1,1 @@
+java -jar lib\yuicompressor\yuicompressor-2.4.2.jar %1 -o %1
